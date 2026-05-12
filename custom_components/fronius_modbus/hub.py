@@ -127,6 +127,10 @@ class Hub:
 
     PYMODBUS_VERSION = '3.11.2'
 
+    @staticmethod
+    def _normalize_instance_key(value: str) -> str:
+        return re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_") or "fronius"
+
     def __init__(
         self,
         hass: HomeAssistant,
@@ -149,7 +153,7 @@ class Hub:
         self._port = port
         self._inverter_unit_id = inverter_unit_id
         self._meter_unit_ids = list(meter_unit_ids)
-        self._entity_prefix = f'{ENTITY_PREFIX}_{name.lower()}_'
+        self._fallback_instance_key = self._normalize_instance_key(host)
         self._config_entry: ConfigEntry | None = None
         self._auto_enable_modbus = auto_enable_modbus
         self._restrict_modbus_to_this_ip = restrict_modbus_to_this_ip
@@ -867,7 +871,7 @@ class Hub:
     @property 
     def device_info_storage(self) -> dict:
         return {
-            "identifiers": {(DOMAIN, f'{self._name}_battery_storage')},
+            "identifiers": {(DOMAIN, f'{self.instance_key}_battery_storage')},
             "name": f'{self._client.data.get('s_model')}',
             "manufacturer": self._client.data.get('s_manufacturer'),
             "model": self._client.data.get('s_model'),
@@ -877,7 +881,7 @@ class Hub:
     @property 
     def device_info_inverter(self) -> dict:
         return {
-            "identifiers": {(DOMAIN, f'{self._name}_inverter')},
+            "identifiers": {(DOMAIN, f'{self.instance_key}_inverter')},
             "name": f'Fronius {self._client.data.get('i_model')}',
             "manufacturer": self._client.data.get('i_manufacturer'),
             "model": self._client.data.get('i_model'),
@@ -892,7 +896,7 @@ class Hub:
         except ValueError:
             meter_position = 1
         return {
-            "identifiers": {(DOMAIN, f'{self._name}_meter_{unit_id}')},
+            "identifiers": {(DOMAIN, f'{self.instance_key}_meter_{unit_id}')},
             "name": f'Fronius {self._client.data.get(f"{prefix}model")} Meter {meter_position}',
             "manufacturer": self._client.data.get(f"{prefix}manufacturer"),
             "model": self._client.data.get(f"{prefix}model"),
@@ -906,9 +910,16 @@ class Hub:
         return self._id
 
     @property
+    def instance_key(self) -> str:
+        """Stable per-entry key for entity and device registry identity."""
+        if self._config_entry is not None:
+            return self._normalize_instance_key(self._config_entry.entry_id)
+        return self._fallback_instance_key
+
+    @property
     def entity_prefix(self) -> str:
         """Entity prefix for hub."""
-        return self._entity_prefix
+        return f"{ENTITY_PREFIX}_{self.instance_key}"
 
 
 

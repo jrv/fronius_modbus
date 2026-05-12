@@ -75,6 +75,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: HubConfigEntry) -> bool:
 
     await entry.runtime_data.init_data(config_entry=entry)
     await migrations.async_migrate_v019_mppt_statistics(hass, entry, entry.runtime_data)
+    await migrations.async_migrate_name_based_unique_ids(hass, entry, entry.runtime_data)
     await migrations.async_remove_unexpected_entities(hass, entry, entry.runtime_data)
     await migrations.async_remove_legacy_devices(hass, entry)
     await migrations.async_sync_reconfigure_issue(
