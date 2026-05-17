@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_NAME
+from homeassistant.const import CONF_HOST, CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
@@ -19,6 +19,7 @@ from .const import (
     CONF_METER_UNIT_IDS,
     CONF_RECONFIGURE_REQUIRED,
     DOMAIN,
+    ENTITY_PREFIX,
     INVERTER_API_BUTTON_TYPES,
     INVERTER_API_SWITCH_TYPES,
     INVERTER_NUMBER_TYPES,
@@ -45,7 +46,7 @@ _TRANSLATIONS_DIR = Path(__file__).resolve().parent / "translations"
 _TRANSLATION_CACHE: dict[str, dict] = {}
 
 _TARGET_VERSION = 1
-_TARGET_MINOR_VERSION = 8
+_TARGET_MINOR_VERSION = 9
 
 _LEGACY_METER_DEVICE_RE = re.compile(r".*_meter\d+")
 _V019_MPPT_UNIQUE_ID_MAPPINGS = (
@@ -105,6 +106,21 @@ def _legacy_meter_device_needs_removal(device) -> bool:
 
 def _entity_unique_id(runtime_data: hub.Hub, key: str) -> str:
     return f"{runtime_data.entity_prefix}_{key}"
+
+
+def _legacy_entity_unique_id(entry: ConfigEntry, key: str) -> str:
+    name = str(_entry_value(entry, CONF_NAME, "Fronius")).lower()
+    return f"{ENTITY_PREFIX}_{name}__{key}"
+
+
+def _entry_instance_key(entry: ConfigEntry) -> str:
+    return hub.Hub._normalize_instance_key(entry.entry_id)
+
+
+def _updated_entry_title(entry: ConfigEntry) -> str:
+    name = str(_entry_value(entry, CONF_NAME, "Fronius")).strip() or "Fronius"
+    host = str(_entry_value(entry, CONF_HOST, "")).strip()
+    return f"{name} {host}" if host else name
 
 
 def _definition_keys(definitions) -> list[str]:
@@ -291,6 +307,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             options=new_options,
             version=_TARGET_VERSION,
             minor_version=_TARGET_MINOR_VERSION,
+            title=_updated_entry_title(entry),
         )
 
     return True
@@ -395,6 +412,47 @@ async def async_migrate_v019_mppt_statistics(
             "Migrated v0.1.9 MPPT entity %s -> %s to preserve statistics/history",
             old_entity_id,
             new_entity_id,
+        )
+
+
+async def async_migrate_name_based_unique_ids(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    runtime_data: hub.Hub,
+) -> None:
+    """Move old name-based unique ids to stable per-entry ids."""
+    registry = er.async_get(hass)
+    entity_entries = _entity_entries_for_config_entry(registry, entry)
+    current_unique_ids = {candidate.unique_id or "" for candidate in entity_entries}
+    expected_unique_ids = _expected_entity_unique_ids(runtime_data)
+    migrated = 0
+
+    for new_unique_id in expected_unique_ids:
+        key = new_unique_id.removeprefix(f"{runtime_data.entity_prefix}_")
+        if key == new_unique_id:
+            continue
+
+        old_unique_id = _legacy_entity_unique_id(entry, key)
+        if old_unique_id not in current_unique_ids or new_unique_id in current_unique_ids:
+            continue
+
+        entity_entry = next(
+            (candidate for candidate in entity_entries if (candidate.unique_id or "") == old_unique_id),
+            None,
+        )
+        if entity_entry is None:
+            continue
+
+        registry.async_update_entity(entity_entry.entity_id, new_unique_id=new_unique_id)
+        current_unique_ids.discard(old_unique_id)
+        current_unique_ids.add(new_unique_id)
+        migrated += 1
+
+    if migrated:
+        _LOGGER.info(
+            "Migrated %s entities from name-based unique ids to per-entry ids for %s",
+            migrated,
+            _entry_instance_key(entry),
         )
 
 

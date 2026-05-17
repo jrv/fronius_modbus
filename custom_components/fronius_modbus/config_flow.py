@@ -131,6 +131,12 @@ def _entry_payload(data: dict[str, Any], *, reconfigure_required: bool) -> dict[
     return payload
 
 
+def _entry_title(data: dict[str, Any]) -> str:
+    host = str(data.get(CONF_HOST, "")).strip()
+    name = str(data.get(CONF_NAME, DEFAULT_NAME)).strip() or DEFAULT_NAME
+    return f"{name} {host}" if host else name
+
+
 def entry_defaults(entry: config_entries.ConfigEntry) -> dict[str, Any]:
     defaults = {**entry.data, **entry.options}
     try:
@@ -338,7 +344,7 @@ async def _validate_input(
     if not any(model.startswith(supported_model) for supported_model in SUPPORTED_MODELS):
         _LOGGER.warning("Untested model %s", model)
 
-    return {"title": data[CONF_NAME]}
+    return {"title": _entry_title(data)}
 
 
 async def async_update_entry_from_input(
@@ -361,7 +367,7 @@ async def async_update_entry_from_input(
         entry,
         data=new_data,
         options=new_options,
-        title=validated_input[CONF_NAME],
+        title=_entry_title(validated_input),
     )
     if previous_host and previous_host != validated_input[CONF_HOST]:
         await _async_delete_token(hass, previous_host)
@@ -477,7 +483,7 @@ class ConfigFlow(TokenFlowMixin, config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow."""
 
     VERSION = 1
-    MINOR_VERSION = 8
+    MINOR_VERSION = 9
     CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_POLL
 
     def __init__(self) -> None:
