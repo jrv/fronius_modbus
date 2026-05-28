@@ -573,10 +573,8 @@ class ConfigFlow(TokenFlowMixin, config_entries.ConfigFlow, domain=DOMAIN):
 class FroniusModbusOptionsFlow(TokenFlowMixin, config_entries.OptionsFlow):
     """Handle Fronius Modbus options."""
 
-    def __init__(self) -> None:
-        self._pending_flow_state = None
-        self._pending_settings: dict[str, Any] | None = None
-        self._pending_previous_host: str | None = None
+    _pending_settings: dict[str, Any] | None = None
+    _pending_previous_host: str | None = None
 
     async def _async_finish_options(self, settings, info, previous_host):
         del info
