@@ -711,19 +711,19 @@ class Hub:
                 self._apply_web_battery_config(battery_config)
 
         export_limit_config = await self._async_web_job(self._webclient.get_export_limit_config)
-        if isinstance(export_limit_config, dict):
+        _LOGGER.debug("Export limit config from web API: %s", export_limit_config)
+        if isinstance(export_limit_config, dict) and export_limit_config:
             soft = (
                 export_limit_config.get("powerLimits", {})
                 .get("exportLimits", {})
                 .get("activePower", {})
                 .get("softLimit", {})
             )
-            if isinstance(soft, dict) and soft.get("enabled"):
-                self.data["export_soft_limit"] = soft.get("powerLimit")
-            else:
-                self.data["export_soft_limit"] = None
-        else:
-            self.data["export_soft_limit"] = None
+            if isinstance(soft, dict):
+                if soft.get("enabled"):
+                    self.data["export_soft_limit"] = soft.get("powerLimit")
+                else:
+                    self.data["export_soft_limit"] = None
 
         await self._async_sync_solar_api_warning()
 
