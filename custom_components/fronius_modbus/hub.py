@@ -979,6 +979,10 @@ class Hub:
         return self._webclient is not None
 
     @property
+    def tech_configured(self) -> bool:
+        return self._tech_webclient is not None
+
+    @property
     def meter_configured(self):
         return self._client.meter_configured
 
@@ -1182,22 +1186,11 @@ class Hub:
         await self._client.set_conn_status(enable)
 
     async def set_export_soft_limit(self, value: float) -> None:
-        max_power_w = self.data.get("max_power") or 10000
-        if self._tech_webclient:
-            result = await self._async_tech_web_job(
-                self._tech_webclient.set_export_soft_limit,
-                int(round(value)),
-                int(round(max_power_w)),
-            )
-        elif self._webclient:
-            result = await self._async_web_job(
-                self._webclient.set_export_soft_limit,
-                int(round(value)),
-                int(round(max_power_w)),
-                raise_on_auth_failure=True,
-            )
-        else:
-            _LOGGER.error("Cannot set export soft limit: web API not configured")
+        if not self._tech_webclient:
+            _LOGGER.error("Cannot set export soft limit: technician credentials not configured")
             return
-        if result is not False:
-            self.data["export_soft_limit"] = int(round(value))
+        await self._async_tech_web_job(
+            self._tech_webclient.set_export_soft_limit,
+            int(round(value)),
+        )
+        self.data["export_soft_limit"] = int(round(value))

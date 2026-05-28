@@ -88,7 +88,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities) -> None:
         )
         entities.append(number)
 
-    if hub.web_api_configured:
+    if hub.tech_configured:
         for number_info in INVERTER_WEB_NUMBER_TYPES:
             max_val = number_info[2]['max']
             max_key = number_info[2].get('max_key')
@@ -217,5 +217,5 @@ class FroniusModbusNumber(FroniusModbusBaseEntity, NumberEntity):
                 and data.get('api_battery_mode_effective_raw') == 1
             )
         if self._key == 'export_soft_limit':
-            return self._hub.web_api_configured
+            return self._hub.tech_configured
         return False

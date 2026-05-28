@@ -603,27 +603,13 @@ class FroniusWebClient:
         except requests.HTTPError:
             return {}
 
-    def set_export_soft_limit(self, power_w: int, max_power_w: int) -> bool:
+    def set_export_soft_limit(self, power_w: int) -> bool:
         """Set Export Limit Control (Soft Limit) in watts.
 
-        Reads the current config, patches only the soft limit fields, and writes back.
+        Reads the current config, patches only the softLimit fields, and writes back.
+        Mirrors read_export_limit.py: only modifies softLimit, leaves everything else unchanged.
         """
-        try:
-            config = self._get_json("/api/config/limit_settings/powerLimits")
-        except requests.HTTPError:
-            config = {}
-
-        active = (
-            config.setdefault("exportLimits", {})
-            .setdefault("activePower", {})
-        )
-        active.setdefault("softLimit", {})["enabled"] = True
-        active.setdefault("softLimit", {})["powerLimit"] = int(power_w)
-
-        viz = config.setdefault("visualization", {})
-        viz.setdefault("exportLimits", {}).setdefault("activePower", {}).setdefault(
-            "displayModeSoftLimit", "absolute"
-        )
-        viz["wattPeakReferenceValue"] = int(max_power_w)
-
+        config = self._get_json("/api/config/limit_settings/powerLimits")
+        config["exportLimits"]["activePower"]["softLimit"]["enabled"] = True
+        config["exportLimits"]["activePower"]["softLimit"]["powerLimit"] = int(power_w)
         return self._post_ok("/api/config/limit_settings/powerLimits", config)

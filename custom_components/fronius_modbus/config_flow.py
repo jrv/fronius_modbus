@@ -176,7 +176,13 @@ def _build_password_schema() -> vol.Schema:
                     type=TextSelectorType.PASSWORD,
                     autocomplete="current-password",
                 )
-            )
+            ),
+            vol.Optional("technician_password", default=""): TextSelector(
+                TextSelectorConfig(
+                    type=TextSelectorType.PASSWORD,
+                    autocomplete="current-password",
+                )
+            ),
         }
     )
 
@@ -280,19 +286,6 @@ async def _async_mint_token(
     if not token:
         raise _InvalidApiCredentials
     return token
-
-
-def _build_technician_schema() -> vol.Schema:
-    return vol.Schema(
-        {
-            vol.Optional("technician_password", default=""): TextSelector(
-                TextSelectorConfig(
-                    type=TextSelectorType.PASSWORD,
-                    autocomplete="current-password",
-                )
-            )
-        }
-    )
 
 
 async def _validate_input(
@@ -480,6 +473,23 @@ class TokenFlowMixin:
                     user_input.get(CONF_API_PASSWORD, ""),
                 )
                 await _async_save_token(self.hass, state.settings[CONF_HOST], token)
+                tech_password = str(user_input.get("technician_password", "")).strip()
+                if tech_password:
+                    try:
+                        tech_token = await _async_mint_token(
+                            self.hass,
+                            state.settings[CONF_HOST],
+                            tech_password,
+                            username=TECHNICIAN_USERNAME,
+                        )
+                        await async_get_token_store(self.hass).async_save_token(
+                            state.settings[CONF_HOST],
+                            realm=tech_token["realm"],
+                            token=tech_token["token"],
+                            user=TECHNICIAN_USERNAME,
+                        )
+                    except Exception:
+                        _LOGGER.warning("Failed to store technician token, export limit control will be unavailable")
                 info = await _validate_input(
                     self.hass,
                     state.settings,
@@ -573,9 +583,6 @@ class ConfigFlow(TokenFlowMixin, config_entries.ConfigFlow, domain=DOMAIN):
 class FroniusModbusOptionsFlow(TokenFlowMixin, config_entries.OptionsFlow):
     """Handle Fronius Modbus options."""
 
-    _pending_settings: dict[str, Any] | None = None
-    _pending_previous_host: str | None = None
-
     async def _async_finish_options(self, settings, info, previous_host):
         del info
         if previous_host != settings[CONF_HOST]:
@@ -584,11 +591,6 @@ class FroniusModbusOptionsFlow(TokenFlowMixin, config_entries.OptionsFlow):
             title="",
             data=_entry_payload(settings, reconfigure_required=False),
         )
-
-    async def _async_route_to_technician(self, settings, info, previous_host):
-        self._pending_settings = settings
-        self._pending_previous_host = previous_host
-        return await self.async_step_technician_password()
 
     async def async_step_init(self, user_input=None):
         defaults = entry_defaults(self.config_entry)
@@ -599,7 +601,7 @@ class FroniusModbusOptionsFlow(TokenFlowMixin, config_entries.OptionsFlow):
             defaults=defaults,
             previous_host=defaults[CONF_HOST],
             previous_settings=defaults,
-            on_success=self._async_route_to_technician,
+            on_success=self._async_finish_options,
         )
 
     async def async_step_password(self, user_input=None):
@@ -607,47 +609,5 @@ class FroniusModbusOptionsFlow(TokenFlowMixin, config_entries.OptionsFlow):
             user_input=user_input,
             step_id="password",
             restart_step=self.async_step_init,
-            on_success=self._async_route_to_technician,
-        )
-
-    async def async_step_technician_password(self, user_input=None):
-        """Optional step to set or update the technician password for export limit control."""
-        settings = self._pending_settings
-        if settings is None:
-            return await self.async_step_init()
-
-        errors: dict[str, str] = {}
-
-        if user_input is not None:
-            password = str(user_input.get("technician_password", "")).strip()
-            if password:
-                try:
-                    token = await _async_mint_token(
-                        self.hass,
-                        settings[CONF_HOST],
-                        password,
-                        username=TECHNICIAN_USERNAME,
-                    )
-                    await async_get_token_store(self.hass).async_save_token(
-                        settings[CONF_HOST],
-                        realm=token["realm"],
-                        token=token["token"],
-                        user=TECHNICIAN_USERNAME,
-                    )
-                except _InvalidApiCredentials:
-                    errors["base"] = "invalid_api_credentials"
-                except _CannotConnect:
-                    errors["base"] = "cannot_connect"
-                except Exception:
-                    errors["base"] = "unknown"
-
-            if not errors:
-                return await self._async_finish_options(
-                    settings, {}, self._pending_previous_host
-                )
-
-        return self.async_show_form(
-            step_id="technician_password",
-            data_schema=_build_technician_schema(),
-            errors=errors,
+            on_success=self._async_finish_options,
         )
