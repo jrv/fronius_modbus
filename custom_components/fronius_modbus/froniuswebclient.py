@@ -598,7 +598,10 @@ class FroniusWebClient:
 
     def get_export_limit_config(self) -> dict[str, Any]:
         """Read current Export Limit Control configuration from the inverter."""
-        return self._get_json("/config/exportlimit/")
+        try:
+            return self._get_json("/config/exportlimit/")
+        except requests.HTTPError:
+            return {}
 
     def set_export_soft_limit(self, power_w: int, max_power_w: int) -> bool:
         """Set Export Limit Control (Soft Limit) in watts.
