@@ -58,22 +58,32 @@ def main():
     mode = _hash_mode(HOST, USERNAME)
     print(f"Hash mode: {mode}\n")
 
+    # Read current config
     resp = _fronius_request(HOST, PATH, USERNAME, password, mode)
     print(f"GET {PATH} -> HTTP {resp.status_code}")
-    if resp.ok:
-        data = resp.json()
-        print(json.dumps(data, indent=2))
-        soft = (
-            data.get("exportLimits", {})
-            .get("activePower", {})
-            .get("softLimit", {})
-        )
-        if soft:
-            enabled = soft.get("enabled", False)
-            power_w = soft.get("powerLimit", 0)
-            print(f"\nExport Soft Limit: {'ENABLED' if enabled else 'DISABLED'}, {power_w} W")
-    else:
+    if not resp.ok:
         print(resp.text[:500])
+        return
+
+    data = resp.json()
+    print(json.dumps(data, indent=2))
+    soft = data.get("exportLimits", {}).get("activePower", {}).get("softLimit", {})
+    if soft:
+        enabled = soft.get("enabled", False)
+        power_w = soft.get("powerLimit", 0)
+        print(f"\nExport Soft Limit: {'ENABLED' if enabled else 'DISABLED'}, {power_w} W")
+
+    # Optionally test a write
+    test_w = input("\nEnter new soft limit in W to test write (or Enter to skip): ").strip()
+    if test_w:
+        config = data
+        active = config.setdefault("exportLimits", {}).setdefault("activePower", {})
+        active.setdefault("softLimit", {})["enabled"] = True
+        active.setdefault("softLimit", {})["powerLimit"] = int(test_w)
+
+        resp2 = _fronius_request(HOST, PATH, USERNAME, password, mode, method="POST", body=config)
+        print(f"POST {PATH} -> HTTP {resp2.status_code}")
+        print(resp2.text[:300])
 
 
 if __name__ == "__main__":
