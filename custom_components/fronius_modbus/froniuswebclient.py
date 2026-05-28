@@ -595,3 +595,39 @@ class FroniusWebClient:
             "HYB_BM_CHARGEFROMAC": bool(charge_from_ac),
         }
         return self._post_ok("/api/config/batteries", payload)
+
+    def get_export_limit_config(self) -> dict[str, Any]:
+        """Read current Export Limit Control configuration from the inverter."""
+        return self._get_json("/config/exportlimit/")
+
+    def set_export_soft_limit(self, power_w: int, max_power_w: int) -> bool:
+        """Set Export Limit Control (Soft Limit) in watts.
+
+        Uses the Fronius-proprietary /config/exportlimit/ endpoint.
+        The hard limit is left disabled; only the soft limit is set.
+        """
+        payload = {
+            "powerLimits": {
+                "exportLimits": {
+                    "activePower": {
+                        "hardLimit": {"enabled": False, "powerLimit": 0},
+                        "mode": "entireSystem",
+                        "softLimit": {
+                            "enabled": True,
+                            "powerLimit": int(power_w),
+                        },
+                    },
+                    "failSafeModeEnabled": False,
+                },
+                "visualization": {
+                    "exportLimits": {
+                        "activePower": {
+                            "displayModeHardLimit": "absolute",
+                            "displayModeSoftLimit": "absolute",
+                        }
+                    },
+                    "wattPeakReferenceValue": int(max_power_w),
+                },
+            }
+        }
+        return self._post_ok("/config/exportlimit/?method=save", payload)

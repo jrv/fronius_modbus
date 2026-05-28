@@ -55,6 +55,7 @@ WEB_API_DATA_KEYS = (
     "api_backup_reserved",
     "api_charge_from_ac",
     "api_charge_from_grid",
+    "export_soft_limit",
 )
 
 BATTERY_WRITE_MODBUS_RECOVERY_SECONDS = 30.0
@@ -709,6 +710,21 @@ class Hub:
             if isinstance(battery_config, dict):
                 self._apply_web_battery_config(battery_config)
 
+        export_limit_config = await self._async_web_job(self._webclient.get_export_limit_config)
+        if isinstance(export_limit_config, dict):
+            soft = (
+                export_limit_config.get("powerLimits", {})
+                .get("exportLimits", {})
+                .get("activePower", {})
+                .get("softLimit", {})
+            )
+            if isinstance(soft, dict) and soft.get("enabled"):
+                self.data["export_soft_limit"] = soft.get("powerLimit")
+            else:
+                self.data["export_soft_limit"] = None
+        else:
+            self.data["export_soft_limit"] = None
+
         await self._async_sync_solar_api_warning()
 
     @toggle_busy
@@ -1139,3 +1155,16 @@ class Hub:
 
     async def set_conn_status(self, enable):
         await self._client.set_conn_status(enable)
+
+    async def set_export_soft_limit(self, value: float) -> None:
+        if not self._webclient:
+            _LOGGER.error("Cannot set export soft limit: web API not configured")
+            return
+        max_power_w = self.data.get("max_power") or 10000
+        await self._async_web_job(
+            self._webclient.set_export_soft_limit,
+            int(round(value)),
+            int(round(max_power_w)),
+            raise_on_auth_failure=True,
+        )
+        self.data["export_soft_limit"] = int(round(value))

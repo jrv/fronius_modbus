@@ -94,6 +94,10 @@ INVERTER_NUMBER_TYPES = [
     ['power_factor', 'power_factor', {'min': -1, 'max': 1, 'step': 0.001, 'mode':'box', 'unit': None}],
 ]
 
+INVERTER_WEB_NUMBER_TYPES = [
+    ['export_soft_limit', 'export_soft_limit', {'min': 0, 'max': 50000, 'step': 10, 'mode': 'box', 'unit': 'W', 'max_key': 'max_power'}],
+]
+
 INVERTER_SELECT_TYPES = [
     ['ac_limit_enable', 'ac_limit_enable', {0: 'Disabled', 1: 'Enabled'}],
     ['power_factor_enable', 'power_factor_enable', {0: 'Disabled', 1: 'Enabled'}],
@@ -142,6 +146,7 @@ INVERTER_SENSOR_TYPES = {
 
 INVERTER_WEB_SENSOR_TYPES = {
     'inverter_temperature': ['inverter_temperature', 'inverter_temperature', SensorDeviceClass.TEMPERATURE, SensorStateClass.MEASUREMENT, '°C', 'mdi:thermometer', None],
+    'export_soft_limit': ['export_soft_limit', 'export_soft_limit', SensorDeviceClass.POWER, SensorStateClass.MEASUREMENT, 'W', 'mdi:transmission-tower-export', None],
     'api_modbus_mode': ['api_modbus_mode', 'api_modbus_mode', None, None, None, None, EntityCategory.DIAGNOSTIC],
     'api_modbus_control': ['api_modbus_control', 'api_modbus_control', None, None, None, None, EntityCategory.DIAGNOSTIC],
     'api_modbus_sunspec_mode': ['api_modbus_sunspec_mode', 'api_modbus_sunspec_mode', None, None, None, None, EntityCategory.DIAGNOSTIC],

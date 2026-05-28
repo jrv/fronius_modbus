@@ -84,6 +84,9 @@
       },
       "power_factor": {
         "name": "Power factor"
+      },
+      "export_soft_limit": {
+        "name": "Export soft limit"
       }
     },
     "select": {
@@ -297,6 +300,9 @@
       },
       "ac_limit_rate": {
         "name": "AC limit rate"
+      },
+      "export_soft_limit": {
+        "name": "Export soft limit"
       },
       "ac_limit_enable": {
         "name": "AC limit enabled",
