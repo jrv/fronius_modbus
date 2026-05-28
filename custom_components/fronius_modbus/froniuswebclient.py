@@ -599,38 +599,36 @@ class FroniusWebClient:
     def get_export_limit_config(self) -> dict[str, Any]:
         """Read current Export Limit Control configuration from the inverter."""
         try:
-            return self._get_json("/api/config/exportlimit")
+            return self._get_json("/api/config/limit_settings/powerLimits")
         except requests.HTTPError:
             return {}
 
     def set_export_soft_limit(self, power_w: int, max_power_w: int) -> bool:
         """Set Export Limit Control (Soft Limit) in watts.
 
-        Uses the Fronius-proprietary /api/config/exportlimit endpoint.
+        Uses the Fronius-proprietary /api/config/limit_settings/powerLimits endpoint.
         The hard limit is left disabled; only the soft limit is set.
         """
         payload = {
-            "powerLimits": {
+            "exportLimits": {
+                "activePower": {
+                    "hardLimit": {"enabled": False, "powerLimit": 0},
+                    "mode": "entireSystem",
+                    "softLimit": {
+                        "enabled": True,
+                        "powerLimit": int(power_w),
+                    },
+                },
+                "failSafeModeEnabled": False,
+            },
+            "visualization": {
                 "exportLimits": {
                     "activePower": {
-                        "hardLimit": {"enabled": False, "powerLimit": 0},
-                        "mode": "entireSystem",
-                        "softLimit": {
-                            "enabled": True,
-                            "powerLimit": int(power_w),
-                        },
-                    },
-                    "failSafeModeEnabled": False,
+                        "displayModeHardLimit": "absolute",
+                        "displayModeSoftLimit": "absolute",
+                    }
                 },
-                "visualization": {
-                    "exportLimits": {
-                        "activePower": {
-                            "displayModeHardLimit": "absolute",
-                            "displayModeSoftLimit": "absolute",
-                        }
-                    },
-                    "wattPeakReferenceValue": int(max_power_w),
-                },
-            }
+                "wattPeakReferenceValue": int(max_power_w),
+            },
         }
-        return self._post_ok("/api/config/exportlimit", payload)
+        return self._post_ok("/api/config/limit_settings/powerLimits", payload)

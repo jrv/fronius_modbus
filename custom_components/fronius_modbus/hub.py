@@ -724,8 +724,7 @@ class Hub:
         _LOGGER.debug("Export limit config from web API: %s", export_limit_config)
         if isinstance(export_limit_config, dict) and export_limit_config:
             soft = (
-                export_limit_config.get("powerLimits", {})
-                .get("exportLimits", {})
+                export_limit_config.get("exportLimits", {})
                 .get("activePower", {})
                 .get("softLimit", {})
             )
