@@ -570,6 +570,18 @@ class Hub:
                 data={"entry_id": self._config_entry.entry_id},
             )
 
+    async def _async_tech_web_job(self, func, *args):
+        """Run a tech-client job; on auth failure clear only _tech_webclient."""
+        if not self._tech_webclient:
+            return None
+        try:
+            return await self._hass.async_add_executor_job(func, *args)
+        except FroniusWebAuthError as err:
+            _LOGGER.warning("Disabling Fronius technician web API for %s after auth failure: %s", self._host, err)
+            self._tech_webclient = None
+            self.data["export_soft_limit"] = None
+            return None
+
     async def _async_web_job(
         self,
         func,
@@ -719,8 +731,12 @@ class Hub:
             if isinstance(battery_config, dict):
                 self._apply_web_battery_config(battery_config)
 
-        _export_client = self._tech_webclient or self._webclient
-        export_limit_config = await self._async_web_job(_export_client.get_export_limit_config) if _export_client else None
+        if self._tech_webclient:
+            export_limit_config = await self._async_tech_web_job(self._tech_webclient.get_export_limit_config)
+        elif self._webclient:
+            export_limit_config = await self._async_web_job(self._webclient.get_export_limit_config)
+        else:
+            export_limit_config = None
         _LOGGER.debug("Export limit config from web API: %s", export_limit_config)
         if isinstance(export_limit_config, dict) and export_limit_config:
             soft = (
@@ -1166,15 +1182,22 @@ class Hub:
         await self._client.set_conn_status(enable)
 
     async def set_export_soft_limit(self, value: float) -> None:
-        client = self._tech_webclient or self._webclient
-        if not client:
+        max_power_w = self.data.get("max_power") or 10000
+        if self._tech_webclient:
+            result = await self._async_tech_web_job(
+                self._tech_webclient.set_export_soft_limit,
+                int(round(value)),
+                int(round(max_power_w)),
+            )
+        elif self._webclient:
+            result = await self._async_web_job(
+                self._webclient.set_export_soft_limit,
+                int(round(value)),
+                int(round(max_power_w)),
+                raise_on_auth_failure=True,
+            )
+        else:
             _LOGGER.error("Cannot set export soft limit: web API not configured")
             return
-        max_power_w = self.data.get("max_power") or 10000
-        await self._async_web_job(
-            client.set_export_soft_limit,
-            int(round(value)),
-            int(round(max_power_w)),
-            raise_on_auth_failure=True,
-        )
-        self.data["export_soft_limit"] = int(round(value))
+        if result is not False:
+            self.data["export_soft_limit"] = int(round(value))
