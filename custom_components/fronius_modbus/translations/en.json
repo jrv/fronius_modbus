@@ -33,6 +33,13 @@
         "data": {
           "api_password": "Customer password"
         }
+      },
+      "technician_password": {
+        "title": "Technician Password (Optional)",
+        "description": "Enter the technician password to enable Export Limit Control (Soft Limit). Leave empty to skip.",
+        "data": {
+          "technician_password": "Technician password"
+        }
       }
     },
     "abort": {
@@ -570,6 +577,13 @@
         "description": "Enter the customer password to create or refresh the stored token.",
         "data": {
           "api_password": "Customer password"
+        }
+      },
+      "technician_password": {
+        "title": "Technician Password (Optional)",
+        "description": "Enter the technician password to enable Export Limit Control (Soft Limit). Leave empty to skip.",
+        "data": {
+          "technician_password": "Technician password"
         }
       }
     },
